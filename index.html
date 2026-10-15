@@ -1,62 +1,324 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PECEI - AI-Powered Career Intelligence</title>
-    <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0FDC78">
+<title>体测小达人 · 北京小学生体测训练助手</title>
+<style>
+  :root{
+    --bg:#F7F7F8; --surface:#FFFFFF; --surface-2:#FAFAFB;
+    --text:#171717; --text-muted:#52525B; --text-faint:#A1A1AA;
+    --border:rgba(23,23,23,.10); --border-strong:rgba(23,23,23,.14);
+    --brand:#0FDC78; --brand-dark:#02743B; --brand-soft:#E5FFF2;
+    --accent:#27D2BF; --accent-soft:#EAFBF8; --accent-dark:#0F766E;
+    --good:#32F08C; --pass:#EFAA17; --fail:#E8463A;
+    --radius:10px; --radius-card:14px;
+    --sp-4:4px; --sp-8:8px; --sp-12:12px; --sp-16:16px; --sp-20:20px; --sp-24:24px;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;}
+  body{min-height:100dvh;display:flex;justify-content:center;}
+  .app{
+    width:100%;max-width:480px;min-height:100dvh;background:var(--bg);
+    display:flex;flex-direction:column;position:relative;
+    padding-bottom:84px;/* tabbar + safe area */
+  }
+  header.topbar{
+    position:sticky;top:0;z-index:10;background:var(--bg);
+    padding:14px 16px 10px;border-bottom:1px solid var(--border);
+  }
+  header.topbar h1{margin:0;font-size:18px;font-weight:600;}
+  header.topbar .sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  main{flex:1;padding:16px;display:flex;flex-direction:column;gap:14px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;}
+  .card h3{margin:0 0 8px;font-size:15px;font-weight:600;}
+  .card .row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .card .label{font-size:12px;color:var(--text-muted);}
+  .card .value{font-size:14px;font-weight:500;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:10px 16px;border-radius:10px;border:none;font-size:14px;font-weight:500;
+    cursor:pointer;transition:.15s all;user-select:none;text-decoration:none;}
+  .btn-primary{background:var(--brand);color:var(--brand-dark);}
+  .btn-primary:active{background:#0AB861;}
+  .btn-ghost{background:transparent;border:1px solid var(--border-strong);color:var(--text-muted);}
+  .btn-small{padding:6px 12px;font-size:13px;}
+  .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;
+    font-size:12px;font-weight:500;}
+  .pill-brand{background:var(--brand-soft);color:var(--brand-dark);}
+  .pill-accent{background:var(--accent-soft);color:var(--accent-dark);}
+  .pill-good{background:#E5FFF2;color:#02743B;}
+  .pill-pass{background:#FFF4DB;color:#876200;}
+  .pill-fail{background:#FEEAE7;color:#A51E14;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .kpi{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text);}
+  .kpi small{font-size:14px;color:var(--text-muted);font-weight:500;margin-left:4px;}
+  /* tabbar */
+  nav.tabbar{
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:480px;z-index:20;
+    background:var(--surface);border-top:1px solid var(--border);
+    display:flex;padding:8px 0 calc(8px + env(safe-area-inset-bottom));
+  }
+  nav.tabbar .tab{
+    flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:11px;color:var(--text-faint);cursor:pointer;padding:4px 0;
+    transition:.15s color;
+  }
+  nav.tabbar .tab .ico{width:22px;height:22px;}
+  nav.tabbar .tab.active{color:var(--brand-dark);}
+  nav.tabbar .tab.primary{position:relative;}
+  nav.tabbar .tab.primary .ico{width:28px;height:28px;margin-top:-6px;}
+  /* view toggle */
+  .view{display:none;animation:fade .2s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  /* input styles */
+  input[type=text],input[type=number],input[type=date],input[type=tel],select{
+    width:100%;padding:10px 12px;border:1px solid var(--border-strong);border-radius:10px;
+    background:var(--surface-2);font-size:15px;color:var(--text);outline:none;
+  }
+  input:focus,select:focus{border-color:var(--brand);}
+  label{display:block;font-size:13px;color:var(--text-muted);margin-bottom:6px;}
+  /* item chip row */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{padding:6px 14px;border-radius:999px;border:1px solid var(--border-strong);
+    background:var(--surface);font-size:13px;color:var(--text-muted);cursor:pointer;
+    transition:.15s;}
+  .chip.active{background:var(--brand-soft);border-color:var(--brand);color:var(--brand-dark);font-weight:600;}
+  /* standard table */
+  .std-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .std-table th,.std-table td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--border);}
+  .std-table th{font-size:12px;color:var(--text-muted);font-weight:500;}
+  .std-table td.lev-good{color:#02743B;font-weight:600;}
+  .std-table td.lev-pass{color:#876200;}
+  .std-table tr.me{background:var(--brand-soft);}
+  .std-table tr.me td{color:var(--brand-dark);font-weight:600;}
+  /* progress streak */
+  .streak-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+  .streak-dot{width:14px;height:14px;border-radius:4px;background:var(--surface-muted);}
+  .streak-dot.on{background:var(--brand);}
+  /* toast */
+  .toast{
+    position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);
+    background:rgba(0,0,0,.8);color:#fff;padding:14px 24px;border-radius:12px;
+    font-size:15px;z-index:100;opacity:0;pointer-events:none;transition:.2s;
+  }
+  .toast.show{opacity:1;}
+  /* empty state */
+  .empty{text-align:center;padding:40px 20px;color:var(--text-muted);font-size:14px;}
+  /* mode-switch */
+  .mode-switch{display:inline-flex;background:var(--surface-muted);border-radius:999px;padding:3px;}
+  .mode-switch button{padding:5px 14px;border-radius:999px;border:none;background:transparent;
+    font-size:13px;color:var(--text-muted);cursor:pointer;}
+  .mode-switch button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08);}
+  /* mini chart */
+  .mini-chart{height:120px;margin-top:8px;}
+  /* list item */
+  .item-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+  .item-row:last-child{border-bottom:none;}
+  .item-row .main{display:flex;flex-direction:column;gap:2px;}
+  .item-row .name{font-size:14px;font-weight:500;}
+  .item-row .meta{font-size:12px;color:var(--text-muted);}
+  /* checkbox */
+  .checkbox{display:flex;align-items:center;gap:6px;cursor:pointer;}
+  /* level bar */
+  .levbar{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--surface-muted);margin-top:6px;}
+  .levbar .seg-g{background:#02743B;}
+  .levbar .seg-p{background:#EFAA17;}
+  .levbar .seg-f{background:#E8463A;}
+  .stage-banner{background:linear-gradient(135deg,#E5FFF2 0%,#EAFBF8 100%);
+    border-radius:14px;padding:14px;border:1px solid var(--brand);}
+  .stage-banner .t{font-weight:600;font-size:15px;color:var(--brand-dark);}
+  .stage-banner .d{font-size:13px;color:#0F766E;margin-top:4px;}
+  details summary{cursor:pointer;font-size:13px;color:var(--text-muted);padding:6px 0;}
+  details[open] summary{color:var(--brand-dark);}
+  .policy-box{background:var(--accent-soft);border-radius:12px;padding:12px;border:1px solid #CCFBF1;}
+  .policy-box .t{font-weight:600;font-size:14px;color:var(--accent-dark);}
+  .policy-box .d{font-size:13px;color:#0F766E;margin-top:4px;line-height:1.6;}
+</style>
 </head>
 <body>
-    <header>
-        <nav>
-            <div class="logo">PECEI</div>
-            <ul>
-                <li><a href="#home">Home</a></li>
-                <li><a href="#features">Features</a></li>
-                <li><a href="#about">About</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
-    </header>
+<div class="app">
+  <header class="topbar">
+    <h1 id="pageTitle">体测小达人</h1>
+    <div class="sub" id="pageSub">北京小学生体测训练助手</div>
+  </header>
+  <main>
+    <!-- 首页 -->
+    <section class="view active" data-view="home">
+      <div class="stage-banner">
+        <div class="t">🏆 距六年级体测还有 <span id="daysLeft">—</span> 天</div>
+        <div class="d" id="stageDesc">当前阶段：<b id="stageName">习惯养成期</b> · <span id="stageTip">每周坚持 4 次训练，每次 30 分钟</span></div>
+      </div>
 
-    <section id="home" class="hero">
-        <h1>Welcome to PECEI</h1>
-        <p>Your AI-powered career intelligence platform</p>
-        <button class="cta-button">Get Started</button>
-    </section>
-
-    <section id="features" class="features">
-        <h2>Features</h2>
-        <div class="feature-grid">
-            <div class="feature-card">
-                <h3>AI Career Assessment</h3>
-                <p>Get personalized career recommendations powered by AI</p>
-            </div>
-            <div class="feature-card">
-                <h3>Skills Gap Analysis</h3>
-                <p>Identify and bridge your skills gaps with targeted learning</p>
-            </div>
-            <div class="feature-card">
-                <h3>Job Matching</h3>
-                <p>Find the perfect job matches based on your profile</p>
-            </div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <div class="label">今日训练</div>
+            <div class="value" id="todayStatus">还没打卡哦～</div>
+          </div>
+          <button class="btn btn-primary" onclick="App.switchTab('checkin')">🚀 一键打卡</button>
         </div>
+        <div style="margin-top:10px;">
+          <div class="label">连续打卡 <span id="streakDays">0</span> 天 · 本周已练 <span id="weekCount">0</span>/4</div>
+          <div class="streak-row" id="streakRow"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📊 最近一次成绩（六年级标准）</h3>
+        <div id="latestScores" class="grid-2">
+          <div class="empty" style="grid-column:1/-1;">还没有成绩记录，先去「记录」页录入吧</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>📈 近 8 周跳绳趋势</h3>
+        <div style="display:flex;gap:6px;" class="chips" id="miniTrendChips"></div>
+        <div class="mini-chart"><canvas id="miniTrendChart"></canvas></div>
+        <div class="levbar"><div class="seg-f" style="width:60%"></div><div class="seg-p" style="width:20%"></div><div class="seg-g" style="width:20%"></div></div>
+        <div class="label" style="display:flex;justify-content:space-between;">
+          <span>及格线</span><span>良好线</span><span>优秀线</span>
+        </div>
+      </div>
+
+      <div class="policy-box">
+        <div class="t">⚠️ 北京中考政策提示</div>
+        <div class="d">四、六、八年级第一学期的体测成绩计入中考体育过程性考核（每次 10 分，共 30 分）。<br><b>总分 ≥ 80 分（良好）即拿该次满分 10 分</b>，目标不用设得过高，科学坚持即可。跳绳超过满分可 <b>额外加分 1–20 分</b>，是唯一加分项，建议作为重点项目。</div>
+      </div>
     </section>
 
-    <section id="about" class="about">
-        <h2>About PECEI</h2>
-        <p>PECEI is a cutting-edge platform that leverages artificial intelligence to help professionals navigate their career journeys.</p>
+    <!-- 体测标准页 -->
+    <section class="view" data-view="standard">
+      <div class="card">
+        <h3>体测标准查询</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="mode-switch">
+            <button id="grade5Btn" onclick="App.setGrade(5)" class="on">五年级</button>
+            <button id="grade6Btn" onclick="App.setGrade(6)">六年级</button>
+          </div>
+          <div class="pill pill-accent">女生 · 北京</div>
+        </div>
+        <div style="margin-top:12px;font-size:13px;color:var(--text-muted);">
+          共 7 项：BMI（15%）、肺活量（15%）、50 米跑（20%）、坐位体前屈（10%）、一分钟跳绳（10%+加分）、一分钟仰卧起坐（20%）、50 米×8 往返跑（10%）
+        </div>
+      </div>
+      <div id="stdList"></div>
     </section>
 
-    <section id="contact" class="contact">
-        <h2>Contact Us</h2>
-        <p>Reach out to us for more information</p>
+    <!-- 训练记录页 -->
+    <section class="view" data-view="records">
+      <div class="card">
+        <div class="row">
+          <h3 style="margin:0">📋 训练与成绩</h3>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-small btn-ghost" onclick="App.openMock()">📝 模拟测</button>
+            <button class="btn btn-small btn-primary" onclick="App.openScoreForm()">+ 记成绩</button>
+          </div>
+        </div>
+        <div id="recordsList" style="margin-top:12px;"></div>
+      </div>
+      <div class="card">
+        <h3>📈 成长趋势</h3>
+        <div class="chips" id="trendChips"></div>
+        <div style="height:180px;margin-top:12px;"><canvas id="trendChart"></canvas></div>
+      </div>
+      <div class="card" id="simCard" style="display:none;">
+        <h3>🧮 六年级标准模拟总分</h3>
+        <div id="simContent"></div>
+      </div>
     </section>
 
-    <footer>
-        <p>&copy; 2024 PECEI. All rights reserved.</p>
-    </footer>
+    <!-- 打卡页 -->
+    <section class="view" data-view="checkin">
+      <div class="card">
+        <h3>今日打卡 <span id="todayCount" style="font-size:13px;color:var(--text-muted);font-weight:400;"></span></h3>
+        <label>选择项目（默认填上次）</label>
+        <div class="chips" id="checkinChips"></div>
 
-    <script src="script.js"></script>
+        <div style="display:grid;gap:12px;margin-top:16px;" id="checkinInputArea"></div>
+
+        <button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="App.doCheckin()">✅ 完成打卡</button>
+      </div>
+
+      <div class="card" id="successCard" style="display:none;background:linear-gradient(135deg,#E5FFF2,#EAFBF8);">
+        <div class="row">
+          <div class="t" style="color:var(--brand-dark);font-weight:600;font-size:16px;">🎉 打卡成功！</div>
+          <div class="pill pill-brand" id="successDelta"></div>
+        </div>
+        <div class="d" style="color:#0F766E;font-size:13px;margin-top:6px;" id="successMsg"></div>
+      </div>
+    </section>
+
+    <!-- 我的 -->
+    <section class="view" data-view="profile">
+      <div class="card">
+        <h3>👧 孩子信息</h3>
+        <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr;">
+          <div><label>昵称</label><input id="pfName" type="text" placeholder="小欣"></div>
+          <div><label>当前年级</label>
+            <select id="pfGrade"><option value="5">五年级</option><option value="6">六年级</option></select>
+          </div>
+          <div><label>身高（cm）</label><input id="pfHeight" type="number" step="0.5" placeholder="150"></div>
+          <div><label>体重（kg）</label><input id="pfWeight" type="number" step="0.1" placeholder="40"></div>
+        </div>
+        <div id="bmiBox" style="margin-top:12px;"></div>
+        <div style="margin-top:12px;"><button class="btn btn-primary" onclick="App.saveProfile()">💾 保存</button></div>
+      </div>
+      <div class="card">
+        <h3>📅 体测日期</h3>
+        <div class="label">默认六年级第一学期（9–11 月），可手动调整</div>
+        <input id="pfExamDate" type="date" style="margin-top:8px;">
+        <div style="margin-top:12px;"><button class="btn btn-primary" onclick="App.saveExamDate()">💾 保存</button></div>
+      </div>
+      <div class="card">
+        <h3>📦 数据管理</h3>
+        <div class="row" style="padding:8px 0;"><span>导出 CSV（Excel 可打开）</span><button class="btn btn-small btn-ghost" onclick="App.exportCSV()">导出</button></div>
+        <div class="row" style="padding:8px 0;"><span>清空所有数据</span><button class="btn btn-small btn-ghost" onclick="App.clearData()" style="color:#E8463A;">清空</button></div>
+      </div>
+      <div class="policy-box">
+        <div class="t">ℹ️ 使用说明</div>
+        <div class="d">· 所有数据保存在本设备浏览器中，不上传任何服务器<br>
+          · 首次使用请先在「我的」页设置身高体重（用于 BMI 判级）和体测日期<br>
+          · 每日打卡建议 ≥30 分钟，分 2–3 个项目<br>
+          · 五年级女生重点：按 <b>六年级标准</b> 训练，现在还来得及冲良好！<br>
+          · 本应用为个人免费工具，数据可随时导出或清空</div>
+      </div>
+    </section>
+  </main>
+  <nav class="tabbar">
+    <div class="tab active" data-tab="home" onclick="App.switchTab('home')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9"/><path d="M5 10v10h14V10"/></svg><span>首页</span>
+    </div>
+    <div class="tab" data-tab="standard" onclick="App.switchTab('standard')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4z"/><path d="M4 12h16v8H4z"/></svg><span>标准</span>
+    </div>
+    <div class="tab primary" data-tab="checkin" onclick="App.switchTab('checkin')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg><span>打卡</span>
+    </div>
+    <div class="tab" data-tab="records" onclick="App.switchTab('records')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg><span>记录</span>
+    </div>
+    <div class="tab" data-tab="profile" onclick="App.switchTab('profile')">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c2-4 6-6 8-6s6 2 8 6"/></svg><span>我的</span>
+    </div>
+  </nav>
+</div>
+
+<!-- 成绩录入弹窗 -->
+<div id="scoreModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)App.closeModal('scoreModal')">
+  <div style="background:#fff;width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:20px;max-height:85vh;overflow:auto;">
+    <div class="row"><h3 style="margin:0;" id="scoreModalTitle">录入成绩</h3><button class="btn btn-small btn-ghost" onclick="App.closeModal('scoreModal')">✕</button></div>
+    <div id="scoreModalBody" style="display:grid;gap:12px;margin-top:14px;"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px;" onclick="App.saveScore()">💾 保存</button>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
