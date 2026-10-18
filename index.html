@@ -279,9 +279,41 @@
         <div class="row" style="padding:8px 0;"><span>导出 CSV（Excel 可打开）</span><button class="btn btn-small btn-ghost" onclick="App.exportCSV()">导出</button></div>
         <div class="row" style="padding:8px 0;"><span>清空所有数据</span><button class="btn btn-small btn-ghost" onclick="App.clearData()" style="color:#E8463A;">清空</button></div>
       </div>
+      <div class="card">
+        <h3>☁️ 云端同步（GitHub Gist）</h3>
+        <div class="label" style="margin-bottom:8px;">配置后可在电脑、手机等多设备间同步数据</div>
+        <div style="margin-bottom:10px;">
+          <label>GitHub Token（仅需 gist 权限）</label>
+          <div style="display:flex;gap:6px;">
+            <input id="csToken" type="password" placeholder="ghp_..." style="flex:1;">
+            <button class="btn btn-small" onclick="App.saveCsToken()">保存</button>
+            <button class="btn btn-small btn-ghost" id="csTokenToggle" onclick="App.toggleTokenVisibility()">显示</button>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+            到 <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank" style="color:var(--accent);">github.com/settings/tokens</a> 生成，只勾 gist 权限
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label>Gist ID（首次留空，自动创建；新设备可点"查找"）</label>
+          <div style="display:flex;gap:6px;">
+            <input id="csGistId" type="text" placeholder="自动创建 / 查找" style="flex:1;">
+            <button class="btn btn-small btn-ghost" onclick="App.findGists()">查找</button>
+          </div>
+        </div>
+        <div id="csGistList" style="display:none;margin-bottom:10px;max-height:160px;overflow:auto;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="btn btn-primary" onclick="App.uploadToCloud()">⬆️ 上传到云端</button>
+          <button class="btn" onclick="App.downloadFromCloud()">⬇️ 从云端下载</button>
+        </div>
+        <label class="row" style="padding:8px 0;cursor:pointer;">
+          <span>保存数据时自动同步到云端</span>
+          <input type="checkbox" id="csAuto" onchange="App.setAutoSync(this.checked)" style="width:18px;height:18px;">
+        </label>
+        <div id="csStatus" style="font-size:12px;color:var(--text-muted);margin-top:6px;"></div>
+      </div>
       <div class="policy-box">
         <div class="t">ℹ️ 使用说明</div>
-        <div class="d">· 所有数据保存在本设备浏览器中，不上传任何服务器<br>
+        <div class="d">· 数据默认保存在本设备浏览器；开启「云端同步」后可在多设备间共享<br>
           · 首次使用请先在「我的」页设置身高体重（用于 BMI 判级）和体测日期<br>
           · 每日打卡建议 ≥30 分钟，分 2–3 个项目<br>
           · 五年级女生重点：按 <b>六年级标准</b> 训练，现在还来得及冲良好！<br>

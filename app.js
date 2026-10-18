@@ -155,11 +155,43 @@ let State = {
   scores: LS.get('pecei_scores', []),
   activeGrade: LS.get('pecei_activeGrade', 6)
 };
-function persist(){
+/* 云端同步配置 */
+let Cloud = {
+  token: localStorage.getItem('pecei_gh_token') || '',
+  gistId: localStorage.getItem('pecei_gist_id') || '',
+  autoSync: localStorage.getItem('pecei_auto_sync') === '1',
+  fileName: 'pecei-data.json',
+  syncing: false
+};
+function persist(noAuto){
   LS.set('pecei_profile',State.profile);
   LS.set('pecei_checkins',State.checkins);
   LS.set('pecei_scores',State.scores);
   LS.set('pecei_activeGrade',State.activeGrade);
+  if(Cloud.autoSync && !noAuto){ autoSync(); }
+}
+
+/* =============== 云端同步（GitHub Gist） =============== */
+function ghHeaders(extra){
+  const h={'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+  if(Cloud.token) h['Authorization']='Bearer '+Cloud.token;
+  if(extra) Object.assign(h,extra);
+  return h;
+}
+function buildPayload(){
+  return {
+    profile: State.profile,
+    checkins: State.checkins,
+    scores: State.scores,
+    activeGrade: State.activeGrade,
+    _syncAt: new Date().toISOString()
+  };
+}
+/* 自动同步：静默上传，失败只在控制台提示，不打断用户 */
+function autoSync(){
+  if(!Cloud.token || Cloud.syncing) return;
+  Cloud.syncing=true;
+  App.uploadToCloud(true).finally(()=>{Cloud.syncing=false;});
 }
 
 /* 默认体测日期：六年级第一学期 9 月 30 日（下一年） */
@@ -193,6 +225,7 @@ const App = {
     if(name==='checkin')this.renderCheckin();
     if(name==='records')this.renderRecords();
     if(name==='standard')this.renderStandard();
+    if(name==='profile'){this.renderProfileForm();this.renderCloudSync();}
   },
 
   /* ========== 首页 ========== */
@@ -800,6 +833,153 @@ const App = {
     State.scores=[];State.checkins=[];
     persist();showToast('已清空');
     this.switchTab('records');
+  },
+
+  /* ========== 云端同步 ========== */
+  saveCsToken(){
+    const v=$('#csToken').value.trim();
+    if(v){
+      Cloud.token=v;
+      localStorage.setItem('pecei_gh_token',v);
+      showToast('✅ Token 已保存');
+    }else{
+      Cloud.token='';
+      localStorage.removeItem('pecei_gh_token');
+      showToast('Token 已清除');
+    }
+  },
+  toggleTokenVisibility(){
+    const el=$('#csToken'); const btn=$('#csTokenToggle');
+    if(el.type==='password'){el.type='text';btn.textContent='隐藏';}
+    else{el.type='password';btn.textContent='显示';}
+  },
+  setAutoSync(on){
+    Cloud.autoSync=!!on;
+    localStorage.setItem('pecei_auto_sync',on?'1':'0');
+    showToast(on?'✅ 已开启自动同步':'已关闭自动同步');
+  },
+  renderCloudSync(){
+    $('#csToken').value=''; // 不回显 token，安全
+    $('#csGistId').value=Cloud.gistId;
+    $('#csAuto').checked=Cloud.autoSync;
+    $('#csStatus').textContent = Cloud.token? 'Token 已配置' : '未配置 Token';
+  },
+  /* 查找用户名下的 pecei-data.json Gist，供新设备绑定 */
+  async findGists(){
+    if(!Cloud.token){showToast('⚠️ 请先保存 Token');return;}
+    const box=$('#csGistList');
+    box.style.display='block';box.innerHTML='<div style="padding:8px;color:var(--text-muted);">查找中…</div>';
+    try{
+      const r=await fetch('https://api.github.com/gists?per_page=100',{headers:ghHeaders()});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const list=await r.json();
+      const hits=list.filter(g=>g.files && g.files[Cloud.fileName]);
+      if(!hits.length){
+        box.innerHTML='<div style="padding:8px;color:var(--text-muted);">没找到已有的体测数据 Gist，点「上传到云端」可新建</div>';
+        return;
+      }
+      box.innerHTML=hits.map(g=>`<div class="row" style="padding:6px 8px;cursor:pointer;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;" onclick="App.bindGist('${g.id}')">
+        <span style="font-size:12px;">${g.description||'(无描述)'}</span>
+        <span style="font-size:11px;color:var(--text-muted);">${g.id.slice(0,8)}</span>
+      </div>`).join('');
+    }catch(e){
+      box.innerHTML=`<div style="padding:8px;color:#E8463A;">查找失败：${e.message}</div>`;
+    }
+  },
+  bindGist(id){
+    Cloud.gistId=id;
+    localStorage.setItem('pecei_gist_id',id);
+    $('#csGistId').value=id;
+    showToast('✅ 已绑定 Gist，可下载数据');
+    $('#csGistList').style.display='none';
+  },
+  async uploadToCloud(silent){
+    if(!Cloud.token){
+      if(!silent)showToast('⚠️ 请先保存 Token');
+      return Promise.reject('no token');
+    }
+    if(!silent) showToast('⬆️ 上传中…');
+    const content=JSON.stringify(buildPayload(),null,2);
+    const file={content};
+    try{
+      if(Cloud.gistId){
+        const r=await fetch('https://api.github.com/gists/'+Cloud.gistId,{
+          method:'PATCH',headers:ghHeaders({'Content-Type':'application/json'}),
+          body:JSON.stringify({files:{[Cloud.fileName]:file}})
+        });
+        if(r.status===404){
+          // Gist 被删除，清理本地 ID，走创建流程
+          Cloud.gistId='';localStorage.removeItem('pecei_gist_id');
+        }else if(!r.ok){
+          throw new Error('HTTP '+r.status);
+        }
+      }
+      if(!Cloud.gistId){
+        const r=await fetch('https://api.github.com/gists',{
+          method:'POST',headers:ghHeaders({'Content-Type':'application/json'}),
+          body:JSON.stringify({
+            description:'体测小达人 - 云端同步数据',
+            public:false,
+            files:{[Cloud.fileName]:file}
+          })
+        });
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const g=await r.json();
+        Cloud.gistId=g.id;
+        localStorage.setItem('pecei_gist_id',g.id);
+        if($('#csGistId')) $('#csGistId').value=g.id;
+      }
+      if(!silent) showToast('✅ 已同步到云端');
+      return true;
+    }catch(e){
+      console.error('[cloud] upload failed:',e);
+      if(!silent) showToast('❌ 上传失败：'+e.message);
+      throw e;
+    }
+  },
+  async downloadFromCloud(){
+    if(!Cloud.token){showToast('⚠️ 请先保存 Token');return;}
+    if(!Cloud.gistId){showToast('⚠️ 请先点「查找」绑定 Gist，或先上传一次');return;}
+    showToast('⬇️ 下载中…');
+    try{
+      const r=await fetch('https://api.github.com/gists/'+Cloud.gistId,{headers:ghHeaders()});
+      if(r.status===404){
+        Cloud.gistId='';localStorage.removeItem('pecei_gist_id');
+        $('#csGistId').value='';
+        throw new Error('Gist 不存在（已清理本地 ID）');
+      }
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const g=await r.json();
+      const f=g.files&&g.files[Cloud.fileName];
+      if(!f){throw new Error('该 Gist 中没有数据文件');}
+      const data=JSON.parse(f.content);
+      const mode=confirm('选择下载方式：\n\n确定 = 覆盖本地（用云端数据替换全部）\n取消 = 合并（保留本地，云端缺的记录补齐）');
+      if(mode){
+        // 覆盖
+        State.profile=data.profile||State.profile;
+        State.checkins=data.checkins||[];
+        State.scores=data.scores||[];
+        State.activeGrade=data.activeGrade||6;
+      }else{
+        // 合并
+        if(data.profile) Object.assign(State.profile,data.profile);
+        if(Array.isArray(data.checkins)){
+          const map=new Map(State.checkins.map(c=>[c.date,c]));
+          data.checkins.forEach(c=>{ if(!map.has(c.date)) State.checkins.push(c); });
+        }
+        if(Array.isArray(data.scores)){
+          const ids=new Set(State.scores.map(s=>s.id));
+          data.scores.forEach(s=>{ if(s.id&&!ids.has(s.id)) State.scores.push(s); });
+        }
+        if(data.activeGrade) State.activeGrade=data.activeGrade;
+      }
+      persist(true); // 存本地，但关闭自动同步避免回传
+      showToast('✅ 下载完成');
+      this.renderHome();this.renderRecords();this.renderProfileForm();
+    }catch(e){
+      console.error('[cloud] download failed:',e);
+      showToast('❌ 下载失败：'+e.message);
+    }
   }
 };
 
